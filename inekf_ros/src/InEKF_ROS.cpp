@@ -43,6 +43,9 @@ void InEKF_ROS::init() {
     if (nh.getParam("noise/contact_std", std)) { 
         params.setContactNoise(std);
     }
+    if (nh.getParam("noise/gps_std", std)) { 
+        params.setGpsNoise(std);
+    }
     filter_.setNoiseParams(params);
 
     // Set initial state and covariance
@@ -136,6 +139,7 @@ void InEKF_ROS::init() {
     nh.param<string>("settings/map_frame_id", map_frame_id_, "/map");
     nh.param<bool>("settings/enable_landmarks", enable_landmarks_, false);
     nh.param<bool>("settings/enable_kinematics", enable_kinematics_, false);
+    initial_lla_set_ = false;
 
     // Create publishers visualization markers if requested
     nh.param<bool>("settings/publish_visualization_markers", publish_visualization_markers_, false);
@@ -171,6 +175,22 @@ void InEKF_ROS::subscribe() {
     sensor_msgs::Imu::ConstPtr imu_msg = ros::topic::waitForMessage<sensor_msgs::Imu>(imu_topic);
     imu_frame_id_ = imu_msg->header.frame_id;
     ROS_INFO("IMU message received. IMU frame is set to %s.", imu_frame_id_.c_str());
+    
+    // Retrieve gps frame_id 
+    string gps_topic;
+    nh.param<string>("settings/gps_topic", gps_topic, "/gps");
+    ROS_INFO("Waiting for GPS message...");
+    sensor_msgs::NavSatFix::ConstPtr gps_msg = ros::topic::waitForMessage<sensor_msgs::NavSatFix>(gps_topic);
+    gps_frame_id_ = gps_msg->header.frame_id;
+    if (!initial_lla_set_) {
+        Eigen::Matrix<double,3,1> lla_;
+        lla_ << gps_msg->latitude, 
+                gps_msg->longitude, 
+                gps_msg->altitude;
+        filter_.SetInitialLLA(lla_);
+        initial_lla_set_ = true;
+    }
+    ROS_INFO("GPS message received. GPS frame is set to %s.", gps_frame_id_.c_str());
 
     // Retrieve camera frame_id and transformation between camera and imu
     string landmarks_topic;
@@ -204,6 +224,10 @@ void InEKF_ROS::subscribe() {
     ROS_INFO("Subscribing to %s.", imu_topic.c_str());
     imu_sub_ = n_.subscribe(imu_topic, 1000, &InEKF_ROS::imuCallback, this);
 
+    // Subscribe to GPS publisher
+    ROS_INFO("Subscribing to %s.", gps_topic.c_str());
+    gps_sub_ = n_.subscribe(gps_topic, 1000, &InEKF_ROS::gpsCallback, this);
+
     // Subscribe to Landmark publisher
     if (enable_landmarks_) {
         ROS_INFO("Subscribing to %s.", landmarks_topic.c_str());
@@ -227,6 +251,12 @@ void InEKF_ROS::subscribe() {
 // IMU Callback function
 void InEKF_ROS::imuCallback(const sensor_msgs::Imu::ConstPtr& msg) {
     shared_ptr<Measurement> ptr(new ImuMeasurement(msg));
+    m_queue_.push(ptr);
+}
+
+// GPS Callback function
+void InEKF_ROS::gpsCallback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
+    shared_ptr<Measurement> ptr(new GpsMeasurement(msg));
     m_queue_.push(ptr);
 }
 
@@ -305,6 +335,12 @@ void InEKF_ROS::mainFilteringThread() {
                 filter_.Propagate(imu_ptr_last->getData(), t - t_last);
                 t_last = t;
                 imu_ptr_last = imu_ptr;
+                break;
+            }
+            case GPS: {
+                // ROS_INFO("Correcting state with GPS measurements.");
+                auto gps_ptr = dynamic_pointer_cast<GpsMeasurement>(m_ptr);
+                filter_.CorrectGPS(gps_ptr->getData());
                 break;
             }
             case LANDMARK: {

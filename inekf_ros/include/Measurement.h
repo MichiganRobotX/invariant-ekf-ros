@@ -17,13 +17,14 @@
 #include <string>
 #include "ros/ros.h"
 #include "sensor_msgs/Imu.h"
+#include "sensor_msgs/NavSatFix.h"
 #include "inekf_msgs/ContactArray.h"
 #include "inekf_msgs/KinematicsArray.h"
 #include "inekf_msgs/LandmarkArray.h"
 #include "InEKF.h"
 #include "tf/transform_listener.h"
 
-enum MeasurementType {EMPTY, IMU, LANDMARK, KINEMATIC, CONTACT};
+enum MeasurementType {EMPTY, IMU, GPS, LANDMARK, KINEMATIC, CONTACT};
 
 
 class Measurement {
@@ -59,6 +60,17 @@ class ImuMeasurement : public Measurement {
 
     private: 
         Eigen::Matrix<double,6,1> data_;
+};
+
+class GpsMeasurement : public Measurement {
+
+    public:
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+        GpsMeasurement(const sensor_msgs::NavSatFix::ConstPtr& msg);
+        Eigen::VectorXd getData();
+
+    private: 
+        Eigen::Matrix<double,3,1> data_;
 };
 
 

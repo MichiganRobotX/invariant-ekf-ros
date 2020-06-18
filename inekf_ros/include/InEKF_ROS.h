@@ -21,6 +21,7 @@
 #include <boost/lockfree/queue.hpp>
 #include "ros/ros.h"
 #include "sensor_msgs/Imu.h"
+#include "sensor_msgs/NavSatFix.h"
 #include "geometry_msgs/PoseWithCovarianceStamped.h"
 #include "tf/transform_broadcaster.h"
 #include "tf/transform_listener.h"
@@ -46,6 +47,7 @@ class InEKF_ROS {
         ros::NodeHandle n_;
         inekf::InEKF filter_;
         ros::Subscriber imu_sub_;
+        ros::Subscriber gps_sub_;
         ros::Subscriber landmarks_sub_;
         ros::Subscriber kinematics_sub_;
         ros::Subscriber contact_sub_;
@@ -54,17 +56,20 @@ class InEKF_ROS {
         Queue<std::shared_ptr<Measurement>, std::vector<std::shared_ptr<Measurement>>, MeasurementCompare> m_queue_;
 
         std::string imu_frame_id_;
+        std::string gps_frame_id_;
         std::string map_frame_id_;
         bool publish_visualization_markers_;
         ros::Publisher visualization_pub_;
         bool enable_landmarks_;
         tf::StampedTransform camera_to_imu_transform_;
         bool enable_kinematics_;
+        bool initial_lla_set_;
 
         void subscribe();
         void mainFilteringThread();
         void outputPublishingThread();
         void imuCallback(const sensor_msgs::Imu::ConstPtr& msg); 
+        void gpsCallback(const sensor_msgs::NavSatFix::ConstPtr& msg); 
         void landmarkCallback(const inekf_msgs::LandmarkArray::ConstPtr& msg);
         void aprilTagCallback(const apriltag_msgs::AprilTagDetectionArray::ConstPtr& msg);
         void kinematicsCallback(const inekf_msgs::KinematicsArray::ConstPtr& msg);

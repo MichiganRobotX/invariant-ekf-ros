@@ -37,6 +37,16 @@ ImuMeasurement::ImuMeasurement(const sensor_msgs::Imu::ConstPtr& msg) {
 }
 Eigen::VectorXd ImuMeasurement::getData() { return data_; }
 
+// Construct GPS measurement
+GpsMeasurement::GpsMeasurement(const sensor_msgs::NavSatFix::ConstPtr& msg) {
+    t_ = msg->header.stamp.toSec();
+    data_ << msg->latitude, 
+             msg->longitude, 
+             msg->altitude;
+    type_ = GPS;
+}
+Eigen::VectorXd GpsMeasurement::getData() { return data_; }
+
 // Construct Landmark measurement
 LandmarkMeasurement::LandmarkMeasurement(const inekf_msgs::LandmarkArray::ConstPtr& msg, const tf::StampedTransform& transform){
     t_ = msg->header.stamp.toSec();
@@ -91,6 +101,9 @@ ostream& operator<<(ostream& os, const Measurement& m) {
     switch (m.type_) {
         case IMU :
             type_str = "IMU";
+            break;
+        case GPS :
+            type_str = "GPS";
             break;
         default:
             type_str = "Unknown";
