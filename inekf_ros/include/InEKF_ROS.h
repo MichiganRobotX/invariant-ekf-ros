@@ -14,6 +14,7 @@
 #ifndef INEKF_ROS_H
 #define INEKF_ROS_H 
 #include <Eigen/Dense>
+#include <Eigen/Geometry>
 #include <memory>
 #include <chrono>
 #include <thread>
@@ -64,6 +65,7 @@ class InEKF_ROS {
         tf::StampedTransform camera_to_imu_transform_;
         bool enable_kinematics_;
         bool initial_lla_set_;
+        bool initial_euler_set_;
 
         void subscribe();
         void mainFilteringThread();

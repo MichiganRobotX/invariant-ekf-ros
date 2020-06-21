@@ -140,6 +140,7 @@ void InEKF_ROS::init() {
     nh.param<bool>("settings/enable_landmarks", enable_landmarks_, false);
     nh.param<bool>("settings/enable_kinematics", enable_kinematics_, false);
     initial_lla_set_ = false;
+    initial_euler_set_ = false;
 
     // Create publishers visualization markers if requested
     nh.param<bool>("settings/publish_visualization_markers", publish_visualization_markers_, false);
@@ -174,6 +175,12 @@ void InEKF_ROS::subscribe() {
     ROS_INFO("Waiting for IMU message...");
     sensor_msgs::Imu::ConstPtr imu_msg = ros::topic::waitForMessage<sensor_msgs::Imu>(imu_topic);
     imu_frame_id_ = imu_msg->header.frame_id;
+    if (!initial_euler_set_) {
+        Eigen::Quaternion quat(imu_msg->orientation.w, imu_msg->orientation.x, imu_msg->orientation.y, imu_msg->orientation.z);
+        Eigen::Matrix<double,3,1> euler = quat.toRotationMatrix().eulerAngles(0, 1, 2);
+        filter_.SetTfEnuOdo(euler);
+        initial_euler_set_ = true;
+    }
     ROS_INFO("IMU message received. IMU frame is set to %s.", imu_frame_id_.c_str());
     
     // Retrieve gps frame_id 
