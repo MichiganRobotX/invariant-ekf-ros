@@ -1,17 +1,33 @@
 settings:
-  imu_topic: "/imu"
-  map_frame_id : "/map"
-  base_frame_id: "/imu"
-  publish_rate: 200.0
-  pose_topic: "/pose"
+  imu_topic: "/sensors/an_device/Imu"
+  gps_topic: "/sensors/an_device/NavSatFix"
+  map_frame_id : "map"
+  base_frame_id: "base_link"
+  publish_rate: 60
+  pose_topic: "/wamv/robot_localization/odometry/filtered"
   state_topic: "/state"
-  publish_visualization_markers: true
+  publish_visualization_markers: false
   visualization_markers_topic: "/markers"
   enable_landmarks: false
   landmarks_topic: "/landmarks"
-  enable_kinematics: true
+  enable_kinematics: false
   kinematics_topic: "/kinematics"
   contact_topic: "/contacts"
+
+#settings:
+#  imu_topic: "/imu"
+#  map_frame_id : "/map"
+#  base_frame_id: "/imu"
+#  publish_rate: 200.0
+#  pose_topic: "/pose"
+#  state_topic: "/state"
+#  publish_visualization_markers: true
+#  visualization_markers_topic: "/markers"
+#  enable_landmarks: false
+#  landmarks_topic: "/landmarks"
+#  enable_kinematics: true
+#  kinematics_topic: "/kinematics"
+#  contact_topic: "/contacts"
 
 
 # settings:
