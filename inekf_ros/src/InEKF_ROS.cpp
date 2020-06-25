@@ -176,7 +176,7 @@ void InEKF_ROS::subscribe() {
     sensor_msgs::Imu::ConstPtr imu_msg = ros::topic::waitForMessage<sensor_msgs::Imu>(imu_topic);
     imu_frame_id_ = imu_msg->header.frame_id;
     if (!initial_euler_set_) {
-        Eigen::Quaternion quat(imu_msg->orientation.w, imu_msg->orientation.x, imu_msg->orientation.y, imu_msg->orientation.z);
+        Eigen::Quaterniond quat(imu_msg->orientation.w, imu_msg->orientation.x, imu_msg->orientation.y, imu_msg->orientation.z);
         Eigen::Matrix<double,3,1> euler = quat.toRotationMatrix().eulerAngles(0, 1, 2);
         filter_.SetTfEnuOdo(euler);
         initial_euler_set_ = true;
@@ -266,7 +266,7 @@ void InEKF_ROS::gpsCallback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
     shared_ptr<Measurement> ptr(new GpsMeasurement(msg));
     m_queue_.push(ptr);
 }
-
+/*
 // Landmark Callback function
 void InEKF_ROS::aprilTagCallback(const apriltag_msgs::AprilTagDetectionArray::ConstPtr& msg) {
     // Convert from apriltag_msg to landmark
@@ -282,7 +282,7 @@ void InEKF_ROS::aprilTagCallback(const apriltag_msgs::AprilTagDetectionArray::Co
     shared_ptr<Measurement> ptr(new LandmarkMeasurement(msg2, camera_to_imu_transform_));
     m_queue_.push(ptr);
 }
-
+*/
 // Landmark Callback function
 void InEKF_ROS::landmarkCallback(const inekf_msgs::LandmarkArray::ConstPtr& msg) {
     shared_ptr<Measurement> ptr(new LandmarkMeasurement(msg, camera_to_imu_transform_));
