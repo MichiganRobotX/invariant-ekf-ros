@@ -141,6 +141,10 @@ void InEKF_ROS::init() {
     nh.param<bool>("settings/enable_kinematics", enable_kinematics_, false);
     initial_lla_set_ = false;
     initial_euler_set_ = false;
+    string gps_file_path;
+    if (nh.getParam("settings/raw_gps_output_path", gps_file_path)) { 
+        filter_.SetGpsFilePath(gps_file_path);
+    }
 
     // Create publishers visualization markers if requested
     nh.param<bool>("settings/publish_visualization_markers", publish_visualization_markers_, false);

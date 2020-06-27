@@ -166,6 +166,8 @@ add_executable(fake_imu_publisher_node tests/fake_imu_publisher.cpp)
 add_executable(fake_landmark_publisher_node tests/fake_landmark_publisher.cpp)
 add_executable(fake_contact_kinematics_publisher_node tests/fake_contact_kinematics_publisher.cpp)
 add_executable(data_file_publisher_node tests/data_file_publisher.cpp)
+add_executable(listener_xyz_node tests/listener_xyz.cpp)
+add_executable(listener_gps_node tests/listener_gps.cpp)
 
 add_dependencies(inekf_node inekf_msgs_generate_messages_cpp)
 add_dependencies(fake_imu_publisher_node inekf_msgs_generate_messages_cpp)
@@ -202,6 +204,12 @@ target_link_libraries(fake_contact_kinematics_publisher_node
 target_link_libraries(data_file_publisher_node
     ${catkin_LIBRARIES}
     ${Boost_LIBRARIES}
+)
+target_link_libraries(listener_xyz_node
+    ${catkin_LIBRARIES}
+)
+target_link_libraries(listener_gps_node
+    ${catkin_LIBRARIES}
 )
 #############
 ## Install ##

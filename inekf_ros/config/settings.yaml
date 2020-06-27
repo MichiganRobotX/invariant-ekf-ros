@@ -13,6 +13,7 @@ settings:
   enable_kinematics: false
   kinematics_topic: "/kinematics"
   contact_topic: "/contacts"
+  raw_gps_output_path: "/home/chenli/vrx_ws/src/vrx/invariant-ekf-ros/inekf_ros/tests/result/data_odo_xyz.csv"
 
 #settings:
 #  imu_topic: "/imu"
