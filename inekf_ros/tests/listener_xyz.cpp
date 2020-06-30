@@ -10,8 +10,8 @@
 
 using namespace std;
 
-string filepath_odo = "/home/chenli/vrx_ws/src/vrx/invariant-ekf-ros/inekf_ros/tests/result/data_odo_xyz.csv";
-string filepath_filtered = "/home/chenli/vrx_ws/src/vrx/invariant-ekf-ros/inekf_ros/tests/result/data_filtered_xyz.csv";
+string filepath_odo = "/home/chenli/vrx_ws/src/vrx/invariant-ekf-ros/inekf_ros/tests/result/data_base_xyz_vrx.csv";
+string filepath_filtered = "/home/chenli/vrx_ws/src/vrx/invariant-ekf-ros/inekf_ros/tests/result/data_filtered_xyz_vrx.csv";
 ofstream file;
 
 void rawCallback(const gazebo_msgs::LinkStates::ConstPtr& msg)
@@ -21,6 +21,7 @@ void rawCallback(const gazebo_msgs::LinkStates::ConstPtr& msg)
 	double y = msg->pose[n-9].position.y;
 	double z = msg->pose[n-9].position.z;
 	file.open(filepath_odo.c_str(), ios::app);
+	file.precision(16);
 	file << 0 << "," << x << "," << y << "," << z << endl;
 	file.close();
 }
@@ -54,9 +55,9 @@ void filterCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& ms
 
 int main(int argc, char **argv)
 {
-	//file.open(filepath_odo.c_str());
-	//file << "timestamp [ns]" << "," << "odo x" << "," << "odo y" << "," << "odo z" << endl;
-	//file.close();
+	file.open(filepath_odo.c_str());
+	file << "timestamp [ns]" << "," << "base x" << "," << "base y" << "," << "base z" << endl;
+	file.close();
 
 	file.open(filepath_filtered.c_str());
 	file << "timestamp [ns]" << "," << "filtered x" << "," << "filtered y" << "," << "filtered z" << endl;
@@ -65,7 +66,7 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "listener_xyz");
   ros::NodeHandle n_;
 
-  //ros::Subscriber odo_sub_ = n_.subscribe("/gazebo/link_states", 1000, rawCallback);
+  ros::Subscriber odo_sub_ = n_.subscribe("/gazebo/link_states", 1000, rawCallback);
   ros::Subscriber filtered_sub_ = n_.subscribe("/wamv/robot_localization/odometry/filtered", 1000, filterCallback);
 
 	ros::Rate loop_rate(500);

@@ -194,11 +194,19 @@ void InEKF_ROS::subscribe() {
     sensor_msgs::NavSatFix::ConstPtr gps_msg = ros::topic::waitForMessage<sensor_msgs::NavSatFix>(gps_topic);
     gps_frame_id_ = gps_msg->header.frame_id;
     if (!initial_lla_set_) {
+        // TODO: set initial gps position AND gps to base transform
+        double x,y,z;
+        Eigen::Vector3d gps_base_pos_;
+        nh.param<double>("settings/gps_base_tf_x", x, 0);
+        nh.param<double>("settings/gps_base_tf_y", y, 0);
+        nh.param<double>("settings/gps_base_tf_z", z, 0);
+        gps_base_pos_ << x, y, z;
+
         Eigen::Matrix<double,3,1> lla_;
         lla_ << gps_msg->latitude, 
                 gps_msg->longitude, 
                 gps_msg->altitude;
-        filter_.SetInitialLLA(lla_);
+        filter_.SetInitialLLA(lla_, gps_base_pos_);
         initial_lla_set_ = true;
     }
     ROS_INFO("GPS message received. GPS frame is set to %s.", gps_frame_id_.c_str());
