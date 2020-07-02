@@ -9,11 +9,11 @@ figure; hold on, grid on
 xlabel('x', 'fontsize', fsize, 'Interpreter', 'latex')
 ylabel('y', 'fontsize', fsize, 'Interpreter', 'latex')
 zlabel('z', 'fontsize', fsize, 'Interpreter', 'latex')
-plot3(base(:,2)-base(1,2), base(:,3)-base(1,3), base(:,4)-base(1,4));
+plot3(base(:,2)-base(1,2), base(:,3)-base(1,3), base(:,4)-base(1,4), 'linewidth', 2);
 hold on;
-plot3(odo(:,2), odo(:,3), odo(:,4));
+plot3(odo(:,2), odo(:,3), odo(:,4), 'linewidth', 2);
 hold on;
-plot3(filtered(:,2), filtered(:,3), filtered(:,4));
+plot3(filtered(:,2), filtered(:,3), filtered(:,4), 'linewidth', 2);
 %legend('Transformed GPS position', 'Filtered position', 'location', 'best')
 legend('Base position', 'Transformed GPS position', 'Filtered position', 'location', 'best')
 set(gca, 'fontsize', fsize)

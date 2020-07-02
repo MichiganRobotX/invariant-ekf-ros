@@ -12,6 +12,7 @@ using namespace std;
 
 string filepath_odo = "/home/chenli/vrx_ws/src/vrx/invariant-ekf-ros/inekf_ros/tests/result/data_base_xyz_vrx.csv";
 string filepath_filtered = "/home/chenli/vrx_ws/src/vrx/invariant-ekf-ros/inekf_ros/tests/result/data_filtered_xyz_vrx.csv";
+//string filepath_filtered = "/home/chenli/vrx_ws/src/vrx/invariant-ekf-ros/inekf_ros/tests/result/data_filtered_xyz.csv";
 ofstream file;
 
 void rawCallback(const gazebo_msgs::LinkStates::ConstPtr& msg)
