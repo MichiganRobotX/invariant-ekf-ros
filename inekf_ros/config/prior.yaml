@@ -1,5 +1,5 @@
 prior:
-  base_orientation: [0,1,0,0]
+  base_orientation: [1,0,0,0]
   base_velocity: [0,0,0]
   base_position: [0,0,0]
   gyroscope_bias: [0,0,0]

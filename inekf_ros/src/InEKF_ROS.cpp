@@ -139,11 +139,9 @@ void InEKF_ROS::init() {
     nh.param<string>("settings/map_frame_id", map_frame_id_, "/map");
     nh.param<bool>("settings/enable_landmarks", enable_landmarks_, false);
     nh.param<bool>("settings/enable_kinematics", enable_kinematics_, false);
-    initial_lla_set_ = false;
-    initial_euler_set_ = false;
-    string gps_file_path;
-    if (nh.getParam("settings/raw_gps_output_path", gps_file_path)) { 
-        filter_.SetGpsFilePath(gps_file_path);
+    output_gps_ = false;
+    if (nh.getParam("settings/raw_gps_output_path", gps_file_path_)) { 
+        output_gps_ = true;
     }
 
     // Create publishers visualization markers if requested
@@ -179,12 +177,12 @@ void InEKF_ROS::subscribe() {
     ROS_INFO("Waiting for IMU message...");
     sensor_msgs::Imu::ConstPtr imu_msg = ros::topic::waitForMessage<sensor_msgs::Imu>(imu_topic);
     imu_frame_id_ = imu_msg->header.frame_id;
-    if (!initial_euler_set_) {
-        Eigen::Quaterniond quat(imu_msg->orientation.w, imu_msg->orientation.x, imu_msg->orientation.y, imu_msg->orientation.z);
-        Eigen::Matrix<double,3,1> euler = quat.toRotationMatrix().eulerAngles(0, 1, 2);
-        filter_.SetTfEnuOdo(euler);
-        initial_euler_set_ = true;
-    }
+
+    Eigen::Quaterniond quat(imu_msg->orientation.w, imu_msg->orientation.x, imu_msg->orientation.y, imu_msg->orientation.z);
+    Eigen::Matrix<double,3,1> euler = quat.toRotationMatrix().eulerAngles(0, 1, 2);
+    initial_yaw_ = euler(2,0);
+    //filter_.SetTfEnuOdo(euler);
+
     ROS_INFO("IMU message received. IMU frame is set to %s.", imu_frame_id_.c_str());
     
     // Retrieve gps frame_id 
@@ -193,22 +191,36 @@ void InEKF_ROS::subscribe() {
     ROS_INFO("Waiting for GPS message...");
     sensor_msgs::NavSatFix::ConstPtr gps_msg = ros::topic::waitForMessage<sensor_msgs::NavSatFix>(gps_topic);
     gps_frame_id_ = gps_msg->header.frame_id;
-    if (!initial_lla_set_) {
-        // TODO: set initial gps position AND gps to base transform
-        double x,y,z;
-        Eigen::Vector3d gps_base_pos_;
-        nh.param<double>("settings/gps_base_tf_x", x, 0);
-        nh.param<double>("settings/gps_base_tf_y", y, 0);
-        nh.param<double>("settings/gps_base_tf_z", z, 0);
-        gps_base_pos_ << x, y, z;
-
-        Eigen::Matrix<double,3,1> lla_;
-        lla_ << gps_msg->latitude, 
-                gps_msg->longitude, 
-                gps_msg->altitude;
-        filter_.SetInitialLLA(lla_, gps_base_pos_);
-        initial_lla_set_ = true;
+    // TODO: Convert output from IMU frame to base frame 
+    string base_frame_id;
+    nh.param<string>("settings/base_frame_id", base_frame_id, "base_link");
+    ROS_INFO("Waiting for tf lookup between frames %s and %s...", gps_frame_id_.c_str(), base_frame_id.c_str());
+    tf::TransformListener listener;
+    try {
+        listener.waitForTransform(base_frame_id, gps_frame_id_, ros::Time(0), ros::Duration(1.0) );
+        listener.lookupTransform(base_frame_id, gps_frame_id_, ros::Time(0), base_to_gps_transform_);
+        ROS_INFO("Tranform between frames %s and %s was found.", gps_frame_id_.c_str(), base_frame_id.c_str());
+    } catch (tf::TransformException ex) {
+        ROS_ERROR("%s. Using identity transform.",ex.what());
+        base_to_gps_transform_ = tf::StampedTransform( tf::Transform::getIdentity(), ros::Time::now(), gps_frame_id_, base_frame_id);
     }
+
+    double x,y,z;
+    nh.param<double>("settings/gps_base_tf_x", x, 0);
+    nh.param<double>("settings/gps_base_tf_y", y, 0);
+    nh.param<double>("settings/gps_base_tf_z", z, 0);
+    Og0_to_Ob0_ << x, y, z;
+    
+    initial_lla_ << gps_msg->latitude, 
+                    gps_msg->longitude, 
+                    gps_msg->altitude;
+    if (output_gps_) {
+        file.open(gps_file_path_.c_str());
+        file << "timestamp [ns]" << "," << "odo x" << "," << "odo y" << "," << "odo z" << endl;
+        file.close();
+    }
+    initial_ecef_ = lla_to_ecef(initial_lla_);
+
     ROS_INFO("GPS message received. GPS frame is set to %s.", gps_frame_id_.c_str());
 
     // Retrieve camera frame_id and transformation between camera and imu
@@ -313,6 +325,45 @@ void InEKF_ROS::contactCallback(const inekf_msgs::ContactArray::ConstPtr& msg) {
     m_queue_.push(ptr);
 }
 
+
+// reference to https://en.wikipedia.org/wiki/Geographic_coordinate_conversion
+Eigen::Vector3d InEKF_ROS::lla_to_ecef(const Eigen::Matrix<double,3,1>& lla) {
+    const double equatorial_radius = 6378137.0;
+    const double polar_radius = 6356752.31424518;
+    const double square_ratio = pow(polar_radius,2) / pow(equatorial_radius,2);
+
+    const double lat = lla(0,0) * M_PI / 180;
+    const double lon = lla(1,0) * M_PI / 180;
+    const double alt = lla(2,0);
+    const double N = equatorial_radius / sqrt(1 - (1-square_ratio) * pow(sin(lat),2));
+
+    const double z = (square_ratio * N + alt) * sin(lat);
+    const double q = (N + alt) * cos(lat);
+    const double x = q * cos(lon);
+    const double y = q * sin(lon);
+
+    return (Eigen::Vector3d() << x, y, z).finished();
+}
+
+Eigen::Matrix<double,3,1> InEKF_ROS::lla_to_enu(const Eigen::Matrix<double,3,1>& lla) {
+    // readings are geodetic
+    Eigen::Vector3d cur_ecef = lla_to_ecef(lla);
+    Eigen::Vector3d r_ecef = cur_ecef - initial_ecef_;
+
+    double phi = initial_lla_(0) * M_PI / 180;
+    double lam = initial_lla_(1) * M_PI / 180;
+
+    Eigen::Matrix3d R = (Eigen::Matrix3d() <<
+        -sin(lam),          cos(lam),           0,
+        -cos(lam)*sin(phi), -sin(lam)*sin(phi), cos(phi),
+        cos(lam)*cos(phi),  sin(lam)*cos(phi),  sin(phi)
+    ).finished();
+
+    return R * r_ecef;
+}
+
+
+
 void InEKF_ROS::mainFilteringThread() {
     cout << "Inside Main Filtering Thread\n";
     shared_ptr<Measurement> m_ptr;
@@ -359,7 +410,32 @@ void InEKF_ROS::mainFilteringThread() {
             case GPS: {
                 // ROS_INFO("Correcting state with GPS measurements.");
                 auto gps_ptr = dynamic_pointer_cast<GpsMeasurement>(m_ptr);
-                filter_.CorrectGPS(gps_ptr->getData());
+
+                Eigen::Matrix<double,3,1> gps_xyz = lla_to_enu(gps_ptr->getData());
+                RobotState state = filter_.getState();
+                Eigen::Vector3d position = gps_xyz.head(3); //state.getPosition();
+                Eigen::Quaternion<double> orientation(state.getRotation());
+                orientation.normalize();
+                std::cout << "Current state orientation: " << orientation.vec() << std::endl;
+                std::cout << "Current gps position after lla_to_enu: " << position << std::endl;
+                // Transform from gps frame to base frame
+                tf::Transform gps_pose;
+                gps_pose.setRotation( tf::Quaternion(orientation.x(),orientation.y(),orientation.z(),orientation.w()) );
+                gps_pose.setOrigin( tf::Vector3(position(0),position(1),position(2)) );
+                tf::Transform base_pose = base_to_gps_transform_.inverse()*gps_pose; // in initial gps frame
+                tf::Vector3 base_position = base_pose.getOrigin();
+                Eigen::Vector3d base_Ob(base_position.getX(),base_position.getY(),base_position.getZ());
+                base_Ob += Og0_to_Ob0_; // subtract origin transition
+                //std::cout << "Here is the diff between gps_xyz and base_ob: " << base_Ob-position << std::endl;
+
+                if (output_gps_) {
+                    file.open(gps_file_path_.c_str(), ios::app);
+                    file.precision(16);
+                    file << gps_ptr->getTime() << "," << base_Ob(0) << "," << base_Ob(1) << "," << base_Ob(2) << endl;
+                    file.close();
+                }
+                
+                filter_.CorrectGPS(base_Ob);
                 break;
             }
             case LANDMARK: {

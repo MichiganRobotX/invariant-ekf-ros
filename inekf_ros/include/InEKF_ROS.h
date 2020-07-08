@@ -19,6 +19,7 @@
 #include <chrono>
 #include <thread>
 #include <string>
+#include <fstream>
 #include <boost/lockfree/queue.hpp>
 #include "ros/ros.h"
 #include "sensor_msgs/Imu.h"
@@ -64,8 +65,15 @@ class InEKF_ROS {
         bool enable_landmarks_;
         tf::StampedTransform camera_to_imu_transform_;
         bool enable_kinematics_;
-        bool initial_lla_set_;
-        bool initial_euler_set_;
+
+        tf::StampedTransform base_to_gps_transform_;
+        Eigen::Matrix<double,3,1> initial_lla_;
+        Eigen::Matrix<double,3,1> initial_ecef_;
+        double initial_yaw_;
+        Eigen::Vector3d Og0_to_Ob0_;
+        std::ofstream file;
+        std::string gps_file_path_;
+        bool output_gps_;
 
         void subscribe();
         void mainFilteringThread();
@@ -76,6 +84,9 @@ class InEKF_ROS {
         //void aprilTagCallback(const apriltag_msgs::AprilTagDetectionArray::ConstPtr& msg);
         void kinematicsCallback(const inekf_msgs::KinematicsArray::ConstPtr& msg);
         void contactCallback(const inekf_msgs::ContactArray::ConstPtr& msg);
+
+        Eigen::Vector3d lla_to_ecef(const Eigen::Matrix<double,3,1>& lla);
+        Eigen::Matrix<double,3,1> lla_to_enu(const Eigen::Matrix<double,3,1>& lla);
 
         void publishLandmarkMeasurementMarkers(std::shared_ptr<LandmarkMeasurement> ptr);
         void publishKinematicMeasurementMarkers(std::shared_ptr<KinematicMeasurement> ptr);

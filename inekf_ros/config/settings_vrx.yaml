@@ -1,9 +1,9 @@
 settings:
   imu_topic: "/wamv/sensors/imu/imu/data"
   gps_topic: "/wamv/sensors/gps/gps/fix"
-  gps_base_tf_x: 0.85  # base at gps frame
+  gps_base_tf_x: -0.85
   gps_base_tf_y: 0
-  gps_base_tf_z: 0
+  gps_base_tf_z: 1.3
   map_frame_id : "map"
   base_frame_id: "base_link"
   publish_rate: 60
