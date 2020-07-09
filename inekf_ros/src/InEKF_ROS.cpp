@@ -416,13 +416,14 @@ void InEKF_ROS::mainFilteringThread() {
                 Eigen::Vector3d position = gps_xyz.head(3); //state.getPosition();
                 Eigen::Quaternion<double> orientation(state.getRotation());
                 orientation.normalize();
-                std::cout << "Current state orientation: " << orientation.vec() << std::endl;
-                std::cout << "Current gps position after lla_to_enu: " << position << std::endl;
+                //position -= Og0_to_Ob0_;
+                //std::cout << "Current state orientation: " << orientation.vec() << std::endl;
+                //std::cout << "Current gps position after lla_to_enu: " << position << std::endl;
                 // Transform from gps frame to base frame
                 tf::Transform gps_pose;
                 gps_pose.setRotation( tf::Quaternion(orientation.x(),orientation.y(),orientation.z(),orientation.w()) );
                 gps_pose.setOrigin( tf::Vector3(position(0),position(1),position(2)) );
-                tf::Transform base_pose = base_to_gps_transform_.inverse()*gps_pose; // in initial gps frame
+                tf::Transform base_pose = gps_pose*base_to_gps_transform_; // in initial gps frame
                 tf::Vector3 base_position = base_pose.getOrigin();
                 Eigen::Vector3d base_Ob(base_position.getX(),base_position.getY(),base_position.getZ());
                 base_Ob += Og0_to_Ob0_; // subtract origin transition
