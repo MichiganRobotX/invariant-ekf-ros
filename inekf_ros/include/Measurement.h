@@ -18,13 +18,14 @@
 #include "ros/ros.h"
 #include "sensor_msgs/Imu.h"
 #include "sensor_msgs/NavSatFix.h"
+#include "gazebo_msgs/LinkStates.h"
 #include "inekf_msgs/ContactArray.h"
 #include "inekf_msgs/KinematicsArray.h"
 #include "inekf_msgs/LandmarkArray.h"
 #include "InEKF.h"
 #include "tf/transform_listener.h"
 
-enum MeasurementType {EMPTY, IMU, GPS, LANDMARK, KINEMATIC, CONTACT};
+enum MeasurementType {EMPTY, IMU, GPS, LINK, LANDMARK, KINEMATIC, CONTACT};
 
 
 class Measurement {
@@ -71,6 +72,19 @@ class GpsMeasurement : public Measurement {
 
     private: 
         Eigen::Matrix<double,3,1> data_;
+};
+
+class GtLinkMeasurement : public Measurement {
+
+    public:
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+        GtLinkMeasurement(const gazebo_msgs::LinkStates::ConstPtr& msg, const double t);
+        Eigen::VectorXd getPos();
+        Eigen::VectorXd getOri();
+
+    private: 
+        Eigen::Matrix<double,3,1> pos_; // x y z
+        Eigen::Matrix<double,4,1> ori_; // x y z w
 };
 
 

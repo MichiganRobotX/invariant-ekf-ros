@@ -62,7 +62,9 @@ void InEKF_ROS::init() {
         ROS_ASSERT(param_vec.size() == 4);
         Eigen::Quaternion<double> q(param_vec[0], param_vec[1], param_vec[2], param_vec[3]);
         q.normalize();
+        cur_baselink_orientation_ << q.x(),q.y(),q.z(),q.w();
         R_init = q.toRotationMatrix();
+        initial_R_ = R_init;
     }
     if (nh.getParam("prior/base_velocity", param_vec)) { 
         ROS_ASSERT(param_vec.size() == 3);
@@ -223,6 +225,17 @@ void InEKF_ROS::subscribe() {
 
     ROS_INFO("GPS message received. GPS frame is set to %s.", gps_frame_id_.c_str());
 
+    // Retrieve prior linkstates 
+    string linkstates_topic;
+    if (nh.getParam("settings/base_link_topic", linkstates_topic)) { 
+        gazebo_msgs::LinkStates::ConstPtr link_msg = ros::topic::waitForMessage<gazebo_msgs::LinkStates>(linkstates_topic);
+        int n = (link_msg->pose).size();
+        initial_linkstate_ << link_msg->pose[n-9].position.x,  // 8 is gps_link, 9 is base_link
+                              link_msg->pose[n-9].position.y, 
+                              link_msg->pose[n-9].position.z;
+        ROS_INFO("Prior link states message received.");
+    }
+
     // Retrieve camera frame_id and transformation between camera and imu
     string landmarks_topic;
     if (enable_landmarks_) {
@@ -259,6 +272,10 @@ void InEKF_ROS::subscribe() {
     ROS_INFO("Subscribing to %s.", gps_topic.c_str());
     gps_sub_ = n_.subscribe(gps_topic, 1000, &InEKF_ROS::gpsCallback, this);
 
+    // Subscribe to link states publisher
+    ROS_INFO("Subscribing to %s.", linkstates_topic.c_str());
+    linkstates_sub_ = n_.subscribe(linkstates_topic, 1000, &InEKF_ROS::linkstatesCallback, this);
+
     // Subscribe to Landmark publisher
     if (enable_landmarks_) {
         ROS_INFO("Subscribing to %s.", landmarks_topic.c_str());
@@ -290,6 +307,13 @@ void InEKF_ROS::gpsCallback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
     shared_ptr<Measurement> ptr(new GpsMeasurement(msg));
     m_queue_.push(ptr);
 }
+
+// Link States Callback function
+void InEKF_ROS::linkstatesCallback(const gazebo_msgs::LinkStates::ConstPtr& msg) {
+    shared_ptr<Measurement> ptr(new GtLinkMeasurement(msg, ros::Time::now().toSec()));
+    m_queue_.push(ptr);
+}
+
 /*
 // Landmark Callback function
 void InEKF_ROS::aprilTagCallback(const apriltag_msgs::AprilTagDetectionArray::ConstPtr& msg) {
@@ -409,12 +433,14 @@ void InEKF_ROS::mainFilteringThread() {
             }
             case GPS: {
                 // ROS_INFO("Correcting state with GPS measurements.");
+                // Uncomment out this part to use GPS measurement
                 auto gps_ptr = dynamic_pointer_cast<GpsMeasurement>(m_ptr);
 
                 Eigen::Matrix<double,3,1> gps_xyz = lla_to_enu(gps_ptr->getData());
                 RobotState state = filter_.getState();
                 Eigen::Vector3d position = gps_xyz.head(3); //state.getPosition();
-                Eigen::Quaternion<double> orientation(state.getRotation());
+                //Eigen::Quaternion<double> orientation(state.getRotation());
+                Eigen::Quaternion<double> orientation(cur_baselink_orientation_[3],cur_baselink_orientation_[0],cur_baselink_orientation_[1],cur_baselink_orientation_[2]);
                 orientation.normalize();
                 //position -= Og0_to_Ob0_;
                 //std::cout << "Current state orientation: " << orientation.vec() << std::endl;
@@ -423,10 +449,10 @@ void InEKF_ROS::mainFilteringThread() {
                 tf::Transform gps_pose;
                 gps_pose.setRotation( tf::Quaternion(orientation.x(),orientation.y(),orientation.z(),orientation.w()) );
                 gps_pose.setOrigin( tf::Vector3(position(0),position(1),position(2)) );
-                tf::Transform base_pose = gps_pose*base_to_gps_transform_; // in initial gps frame
+                tf::Transform base_pose = gps_pose*base_to_gps_transform_.inverse(); // in initial gps frame
                 tf::Vector3 base_position = base_pose.getOrigin();
                 Eigen::Vector3d base_Ob(base_position.getX(),base_position.getY(),base_position.getZ());
-                base_Ob += Og0_to_Ob0_; // subtract origin transition
+                base_Ob -= initial_R_*Og0_to_Ob0_; // subtract origin transition
                 //std::cout << "Here is the diff between gps_xyz and base_ob: " << base_Ob-position << std::endl;
 
                 if (output_gps_) {
@@ -437,6 +463,27 @@ void InEKF_ROS::mainFilteringThread() {
                 }
                 
                 filter_.CorrectGPS(base_Ob);
+                break;
+            }
+            case LINK: {
+                // Uncomment out below part to use ground truth base link states as GPS measurement
+                /*
+                auto link_ptr = dynamic_pointer_cast<GtLinkMeasurement>(m_ptr);
+                Eigen::Vector3d base_Ob(link_ptr->getPos() - initial_linkstate_);
+
+                if (output_gps_) {
+                    file.open(gps_file_path_.c_str(), ios::app);
+                    file.precision(16);
+                    file << link_ptr->getTime() << "," << base_Ob(0) << "," << base_Ob(1) << "," << base_Ob(2) << endl;
+                    file.close();
+                }
+                
+                filter_.CorrectGPS(base_Ob);
+
+                // Uncomment out below part to use ground truth base pose to compute gps-base transform 
+                */
+                auto link_ptr = dynamic_pointer_cast<GtLinkMeasurement>(m_ptr);
+                cur_baselink_orientation_ = link_ptr->getOri();
                 break;
             }
             case LANDMARK: {

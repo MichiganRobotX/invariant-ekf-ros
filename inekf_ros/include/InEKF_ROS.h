@@ -24,6 +24,7 @@
 #include "ros/ros.h"
 #include "sensor_msgs/Imu.h"
 #include "sensor_msgs/NavSatFix.h"
+#include "gazebo_msgs/LinkStates.h"
 #include "geometry_msgs/PoseWithCovarianceStamped.h"
 #include "tf/transform_broadcaster.h"
 #include "tf/transform_listener.h"
@@ -50,6 +51,7 @@ class InEKF_ROS {
         inekf::InEKF filter_;
         ros::Subscriber imu_sub_;
         ros::Subscriber gps_sub_;
+        ros::Subscriber linkstates_sub_;
         ros::Subscriber landmarks_sub_;
         ros::Subscriber kinematics_sub_;
         ros::Subscriber contact_sub_;
@@ -66,6 +68,9 @@ class InEKF_ROS {
         tf::StampedTransform camera_to_imu_transform_;
         bool enable_kinematics_;
 
+        Eigen::Vector3d initial_linkstate_;
+        Eigen::Vector4d cur_baselink_orientation_;
+        Eigen::Matrix3d initial_R_;
         tf::StampedTransform base_to_gps_transform_;
         Eigen::Matrix<double,3,1> initial_lla_;
         Eigen::Matrix<double,3,1> initial_ecef_;
@@ -79,7 +84,8 @@ class InEKF_ROS {
         void mainFilteringThread();
         void outputPublishingThread();
         void imuCallback(const sensor_msgs::Imu::ConstPtr& msg); 
-        void gpsCallback(const sensor_msgs::NavSatFix::ConstPtr& msg); 
+        void gpsCallback(const sensor_msgs::NavSatFix::ConstPtr& msg);
+        void linkstatesCallback(const gazebo_msgs::LinkStates::ConstPtr& msg);  
         void landmarkCallback(const inekf_msgs::LandmarkArray::ConstPtr& msg);
         //void aprilTagCallback(const apriltag_msgs::AprilTagDetectionArray::ConstPtr& msg);
         void kinematicsCallback(const inekf_msgs::KinematicsArray::ConstPtr& msg);

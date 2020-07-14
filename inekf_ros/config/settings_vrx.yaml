@@ -1,6 +1,7 @@
 settings:
   imu_topic: "/wamv/sensors/imu/imu/data"
   gps_topic: "/wamv/sensors/gps/gps/fix"
+  base_link_topic: "/gazebo/link_states"
   gps_base_tf_x: 0.85
   gps_base_tf_y: 0
   gps_base_tf_z: -1.3

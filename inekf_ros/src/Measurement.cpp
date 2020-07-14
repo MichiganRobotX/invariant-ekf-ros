@@ -47,6 +47,22 @@ GpsMeasurement::GpsMeasurement(const sensor_msgs::NavSatFix::ConstPtr& msg) {
 }
 Eigen::VectorXd GpsMeasurement::getData() { return data_; }
 
+// Construct ground truth LinkStates measurement
+GtLinkMeasurement::GtLinkMeasurement(const gazebo_msgs::LinkStates::ConstPtr& msg, const double t) {
+    t_ = t;
+    int n = (msg->pose).size();
+    pos_ << msg->pose[n-9].position.x,  // 8 is gps_link, 9 is base_link
+            msg->pose[n-9].position.y, 
+            msg->pose[n-9].position.z;
+    ori_ << msg->pose[n-9].orientation.x,
+            msg->pose[n-9].orientation.y,
+            msg->pose[n-9].orientation.z,
+            msg->pose[n-9].orientation.w;
+    type_ = LINK;
+}
+Eigen::VectorXd GtLinkMeasurement::getPos() { return pos_; }
+Eigen::VectorXd GtLinkMeasurement::getOri() { return ori_; }
+
 // Construct Landmark measurement
 LandmarkMeasurement::LandmarkMeasurement(const inekf_msgs::LandmarkArray::ConstPtr& msg, const tf::StampedTransform& transform){
     t_ = msg->header.stamp.toSec();
