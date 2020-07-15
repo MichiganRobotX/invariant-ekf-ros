@@ -58,9 +58,11 @@ class ImuMeasurement : public Measurement {
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
         ImuMeasurement(const sensor_msgs::Imu::ConstPtr& msg);
         Eigen::VectorXd getData();
+        Eigen::VectorXd getOri();
 
     private: 
-        Eigen::Matrix<double,6,1> data_;
+        Eigen::Matrix<double,6,1> data_;    // w a
+        Eigen::Matrix<double,4,1> ori_; // x y z w
 };
 
 class GpsMeasurement : public Measurement {

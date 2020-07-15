@@ -33,9 +33,14 @@ ImuMeasurement::ImuMeasurement(const sensor_msgs::Imu::ConstPtr& msg) {
              msg->linear_acceleration.x, 
              msg->linear_acceleration.y, 
              msg->linear_acceleration.z;
+    ori_ << msg->orientation.x,
+            msg->orientation.y,
+            msg->orientation.z,
+            msg->orientation.w;
     type_ = IMU;
 }
 Eigen::VectorXd ImuMeasurement::getData() { return data_; }
+Eigen::VectorXd ImuMeasurement::getOri() { return ori_; }
 
 // Construct GPS measurement
 GpsMeasurement::GpsMeasurement(const sensor_msgs::NavSatFix::ConstPtr& msg) {

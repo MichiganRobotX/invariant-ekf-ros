@@ -429,6 +429,11 @@ void InEKF_ROS::mainFilteringThread() {
                 filter_.Propagate(imu_ptr_last->getData(), t - t_last);
                 t_last = t;
                 imu_ptr_last = imu_ptr;
+
+                // Uncomment out below part to use IMU orientation measurement to compute gps-base transform 
+
+                cur_baselink_orientation_ = imu_ptr->getOri();
+
                 break;
             }
             case GPS: {
@@ -442,14 +447,34 @@ void InEKF_ROS::mainFilteringThread() {
                 //Eigen::Quaternion<double> orientation(state.getRotation());
                 Eigen::Quaternion<double> orientation(cur_baselink_orientation_[3],cur_baselink_orientation_[0],cur_baselink_orientation_[1],cur_baselink_orientation_[2]);
                 orientation.normalize();
+                //orientation.x() = 0;
+                //orientation.y() = 0;
+                
                 //position -= Og0_to_Ob0_;
                 //std::cout << "Current state orientation: " << orientation.vec() << std::endl;
                 //std::cout << "Current gps position after lla_to_enu: " << position << std::endl;
                 // Transform from gps frame to base frame
                 tf::Transform gps_pose;
+
+                // Method1: set GPS orientation
+                /*
                 gps_pose.setRotation( tf::Quaternion(orientation.x(),orientation.y(),orientation.z(),orientation.w()) );
                 gps_pose.setOrigin( tf::Vector3(position(0),position(1),position(2)) );
                 tf::Transform base_pose = gps_pose*base_to_gps_transform_.inverse(); // in initial gps frame
+                */
+
+                // Method2: zero out rotation in GPS orientation, add the rotation in offset
+                // Methametically, these two are same
+                
+                gps_pose.setOrigin( tf::Vector3(position(0),position(1),position(2)) );
+                gps_pose.setRotation( tf::Quaternion::getIdentity() );
+                tf::Transform gps_offset_rotated;
+                gps_offset_rotated.setOrigin( tf::Vector3(-Og0_to_Ob0_(0),-Og0_to_Ob0_(1),-Og0_to_Ob0_(2)) );
+                gps_offset_rotated.setOrigin( tf::quatRotate(tf::Quaternion(orientation.x(),orientation.y(),orientation.z(),orientation.w()), gps_offset_rotated.getOrigin()) );
+                gps_offset_rotated.setRotation( tf::Quaternion::getIdentity() );
+                tf::Transform base_pose = gps_offset_rotated.inverse() * gps_pose;
+                
+
                 tf::Vector3 base_position = base_pose.getOrigin();
                 Eigen::Vector3d base_Ob(base_position.getX(),base_position.getY(),base_position.getZ());
                 base_Ob -= initial_R_*Og0_to_Ob0_; // subtract origin transition
@@ -479,11 +504,13 @@ void InEKF_ROS::mainFilteringThread() {
                 }
                 
                 filter_.CorrectGPS(base_Ob);
+                */
 
                 // Uncomment out below part to use ground truth base pose to compute gps-base transform 
-                */
+                
                 auto link_ptr = dynamic_pointer_cast<GtLinkMeasurement>(m_ptr);
-                cur_baselink_orientation_ = link_ptr->getOri();
+                //cur_baselink_orientation_ = link_ptr->getOri();
+
                 break;
             }
             case LANDMARK: {
