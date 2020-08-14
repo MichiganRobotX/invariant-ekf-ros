@@ -141,6 +141,7 @@ void InEKF_ROS::init() {
     nh.param<string>("settings/map_frame_id", map_frame_id_, "/map");
     nh.param<bool>("settings/enable_landmarks", enable_landmarks_, false);
     nh.param<bool>("settings/enable_kinematics", enable_kinematics_, false);
+    nh.param<bool>("settings/enable_kinematics", enable_linkstates, false);
     output_gps_ = false;
     if (nh.getParam("settings/raw_gps_output_path", gps_file_path_)) { 
         output_gps_ = true;
@@ -226,8 +227,9 @@ void InEKF_ROS::subscribe() {
     ROS_INFO("GPS message received. GPS frame is set to %s.", gps_frame_id_.c_str());
 
     // Retrieve prior linkstates 
-    string linkstates_topic;
-    if (nh.getParam("settings/base_link_topic", linkstates_topic)) { 
+    string linkstates_topic = "";
+    if (enable_linkstates) {
+        nh.param<string>("settings/base_link_topic", linkstates_topic, ""); 
         gazebo_msgs::LinkStates::ConstPtr link_msg = ros::topic::waitForMessage<gazebo_msgs::LinkStates>(linkstates_topic);
         int n = (link_msg->pose).size();
         initial_linkstate_ << link_msg->pose[n-9].position.x,  // 8 is gps_link, 9 is base_link
@@ -273,8 +275,10 @@ void InEKF_ROS::subscribe() {
     gps_sub_ = n_.subscribe(gps_topic, 1000, &InEKF_ROS::gpsCallback, this);
 
     // Subscribe to link states publisher
-    ROS_INFO("Subscribing to %s.", linkstates_topic.c_str());
-    linkstates_sub_ = n_.subscribe(linkstates_topic, 1000, &InEKF_ROS::linkstatesCallback, this);
+    if (enable_linkstates) {
+        ROS_INFO("Subscribing to %s.", linkstates_topic.c_str());
+        linkstates_sub_ = n_.subscribe(linkstates_topic, 1000, &InEKF_ROS::linkstatesCallback, this);
+    }
 
     // Subscribe to Landmark publisher
     if (enable_landmarks_) {
@@ -442,8 +446,19 @@ void InEKF_ROS::mainFilteringThread() {
                 auto gps_ptr = dynamic_pointer_cast<GpsMeasurement>(m_ptr);
 
                 Eigen::Matrix<double,3,1> gps_xyz = lla_to_enu(gps_ptr->getData());
-                RobotState state = filter_.getState();
                 Eigen::Vector3d position = gps_xyz.head(3); //state.getPosition();
+                filter_.CorrectGPS(position);
+                if (output_gps_) {
+                    file.open(gps_file_path_.c_str(), ios::app);
+                    file.precision(16);
+                    double t = gps_ptr->getTime();
+	                size_t t1 = t * 1e9;
+                    file << t1 << "," << position(0) << "," << position(1) << "," << position(2) << endl;
+                    file.close();
+                }
+
+                RobotState state = filter_.getState();
+                position = state.getPosition();
                 //Eigen::Quaternion<double> orientation(state.getRotation());
                 Eigen::Quaternion<double> orientation(cur_baselink_orientation_[3],cur_baselink_orientation_[0],cur_baselink_orientation_[1],cur_baselink_orientation_[2]);
                 orientation.normalize();
@@ -479,15 +494,10 @@ void InEKF_ROS::mainFilteringThread() {
                 Eigen::Vector3d base_Ob(base_position.getX(),base_position.getY(),base_position.getZ());
                 base_Ob -= initial_R_*Og0_to_Ob0_; // subtract origin transition
                 //std::cout << "Here is the diff between gps_xyz and base_ob: " << base_Ob-position << std::endl;
-
-                if (output_gps_) {
-                    file.open(gps_file_path_.c_str(), ios::app);
-                    file.precision(16);
-                    file << gps_ptr->getTime() << "," << base_Ob(0) << "," << base_Ob(1) << "," << base_Ob(2) << endl;
-                    file.close();
-                }
+                //cout << "[" << position(0) << "," << position(1) << "," << position(2) << "]" << endl;
                 
-                filter_.CorrectGPS(base_Ob);
+                
+                //filter_.CorrectGPS(base_Ob);
                 break;
             }
             case LINK: {

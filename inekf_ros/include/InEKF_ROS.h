@@ -67,6 +67,7 @@ class InEKF_ROS {
         bool enable_landmarks_;
         tf::StampedTransform camera_to_imu_transform_;
         bool enable_kinematics_;
+        bool enable_linkstates;
 
         Eigen::Vector3d initial_linkstate_;
         Eigen::Vector4d cur_baselink_orientation_;

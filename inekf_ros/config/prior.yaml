@@ -1,5 +1,5 @@
 prior:
-  base_orientation: [0.1896408,0,0,-0.9818535]  # yaw -2.76
+  base_orientation: [-0.8530611, 0.0094068, -0.001849, 0.5217229] # [0.1896408,0,0,-0.9818535]  # yaw -2.76
   base_velocity: [0,0,0]
   base_position: [0,0,0]
   gyroscope_bias: [0,0,0]

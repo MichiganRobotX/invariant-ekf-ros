@@ -1,9 +1,10 @@
 settings:
   imu_topic: "/sensors/an_device/Imu"
   gps_topic: "/sensors/an_device/NavSatFix"
+  enable_linkstates: false
   map_frame_id : "map"
   base_frame_id: "base_link"
-  publish_rate: 60
+  publish_rate: 20
   pose_topic: "/wamv/robot_localization/odometry/filtered"
   state_topic: "/state"
   publish_visualization_markers: false
